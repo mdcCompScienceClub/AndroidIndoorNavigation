@@ -82,6 +82,7 @@ public class MainActivity extends AppCompatActivity {
                     String record = recordBytes.toString();
 
 
+
                     Log.i(TAG, "record: "+ record);
                     int startByte = 2;
                     boolean patternFound = false;
@@ -113,6 +114,9 @@ public class MainActivity extends AppCompatActivity {
                         //Here is your Minor value
                         int minor = (recordBytes[startByte+22] & 0xff) * 0x100 + (recordBytes[startByte+23] & 0xff);
                         Log.i(TAG, "uuid: " + hexString + ", major: " + major + ", minor: " + minor);
+
+
+                        //ADD CODE HERE
                     }
 
 
