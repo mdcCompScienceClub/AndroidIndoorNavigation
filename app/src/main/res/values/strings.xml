@@ -1,3 +1,27 @@
 <resources>
-    <string name="app_name">IndoorNavigation2</string>
+    <string name="app_name">EnTec Indoor Navigation</string>
+    <string name="scan_message">Scan</string>
+    <string name="stop_scan_message">Stop scanning</string>
+    <string name="beacon1">Beacon 11 RSSI (dBm):</string>
+    <string name="beacon2">Beacon 12 RSSI (dBm):</string>
+    <string name="beacon3">Beacon 21 RSSI (dBm):</string>
+    <string name="beacon4">Beacon 22 RSSI (dBm):</string>
+    <string name="beacon5">Beacon 31 RSSI (dBm):</string>
+    <string name="beacon6">Beacon 32 RSSI (dBm):</string>
+    <string name="undetermined">Undetermined</string>
+    <string name="not_detected">Not detected</string>
+    <string name="not_measured">-</string>
+    <string name="no_accelerometer">No accelerometer found</string>
+    <string name="no_magnetometer">No magnetometer found</string>
+    <string name="no_gyroscope">No gyroscope found</string>
+    <string name="acceleration_x">Acceleration X (m/s\u00B2):</string>
+    <string name="acceleration_y">Acceleration Y (m/s\u00B2):</string>
+    <string name="acceleration_z">Acceleration Z (m/s\u00B2):</string>
+    <string name="rotation_x">Rotation X (rad/s):</string>
+    <string name="rotation_y">Rotation Y (rad/s):</string>
+    <string name="rotation_z">Rotation Z (rad/s):</string>
+    <string name="magnetic_field_x">Geomagnetic field X (\u00B5T):</string>
+    <string name="magnetic_field_y">Geomagnetic field Y (\u00B5T):</string>
+    <string name="magnetic_field_z">Geomagnetic field Z (\u00B5T):</string>
+    <string name="calculated_position">Calculated Position:</string>
 </resources>
