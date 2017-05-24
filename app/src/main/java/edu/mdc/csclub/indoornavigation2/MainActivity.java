@@ -10,7 +10,6 @@ import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.database.SQLException;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
@@ -33,15 +32,10 @@ import android.widget.Button;
 import android.widget.ProgressBar;
 import android.widget.TextView;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-//https://developer.android.com/guide/topics/connectivity/bluetooth-le.html
-//https://developer.android.com/reference/android/bluetooth/le/BluetoothLeScanner.html#startScan(java.util.List<android.bluetooth.le.ScanFilter>, android.bluetooth.le.ScanSettings, android.bluetooth.le.ScanCallback)
-///http://www.truiton.com/2015/04/android-bluetooth-low-energy-ble-example/
-//http://kittensandcode.blogspot.com/2014/08/ibeacons-and-android-parsing-uuid-major.html
 
 public class MainActivity extends AppCompatActivity implements SensorEventListener {
 
@@ -66,6 +60,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private TextView magneticFieldZTextView;
     private TextView XTextView;
     private TextView YTextView;
+    private TextView roomTextView;
     private ProgressBar progressBar;
 
     //App state
@@ -86,6 +81,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float YMagneticField;
     private float ZMagneticField;
     private Cell currentCell;
+    private Room currentRoom;
+    private List<Measurement> measurements;
 
     //Bluetooth objects:
     //For all APIs (<21 and >=21, >=23)
@@ -101,7 +98,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     //For API < 21
     private BluetoothAdapter.LeScanCallback olderVersionScanCallback;
 
-    //Objects for sensors
+    //Sensor Objects
     private SensorManager mSensorManager;
     private Sensor mAccelerometer;
     private WindowManager mWindowManager;
@@ -115,7 +112,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     //SQLLite DB
     private DatabaseHandler db;
-    private List<Measurement> measurements;
 
     ///////////////////////////////////////////////////////////////  App Lifecycle Methods ///////////////////////////////////////////////////////////////
 
@@ -128,6 +124,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         scanButton = (Button) findViewById(R.id.scanButton);
         XTextView = (TextView) findViewById(R.id.XTextView);
         YTextView = (TextView) findViewById(R.id.YTextView);
+        roomTextView = (TextView) findViewById(R.id.roomTextView);
         beacon11TextView = (TextView) findViewById(R.id.beacon11TextView);
         beacon12TextView = (TextView) findViewById(R.id.beacon12TextView);
         beacon21TextView = (TextView) findViewById(R.id.beacon21TextView);
@@ -147,6 +144,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         XTextView.setText(R.string.undetermined);
         YTextView.setText(R.string.undetermined);
+        roomTextView.setText(R.string.undetermined);
         beacon11TextView.setText(R.string.not_detected);
         beacon12TextView.setText(R.string.not_detected);
         beacon21TextView.setText(R.string.not_detected);
@@ -347,15 +345,23 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (currentCell != null) {
             XTextView.setText(String.valueOf(currentCell.getX()));
             YTextView.setText(String.valueOf(currentCell.getY()));
+            Cell retrievedCell = db.getCell(currentCell.getX(), currentCell.getY());
+            if (retrievedCell != null) {
+                currentCell.setRoomID(retrievedCell.getRoomID());
+                Log.i(TAG, "Room ID: " + currentCell.getRoomID());
+
+                currentRoom = db.getRoom(currentCell.getRoomID());
+                if (currentRoom != null) {
+                    roomTextView.setText(String.valueOf(currentRoom.getRoomNumber()));
+                } else {
+                    roomTextView.setText(R.string.undetermined);
+                }
+            }
         } else {
             XTextView.setText(R.string.undetermined);
             YTextView.setText(R.string.undetermined);
         }
-        Cell retrievedCell = db.getCell(currentCell.getX(), currentCell.getY());
-        if (retrievedCell != null) {
-            currentCell.setRoomID(retrievedCell.getRoomID());
-            Log.i(TAG, "Room ID: " + currentCell.getRoomID());
-        }
+
     }
 
     /////////////////////////////////////////////////////////////// Other callback methods ///////////////////////////////////////////////////////////////
@@ -575,12 +581,16 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     /////////////////////////////////////////////////////////////// Utility methods   ///////////////////////////////////////////////////////////////
-    //TODO
+
     private Cell calculatePosition() {
-        //read database
-        if (measurements.isEmpty())
+        Cell cell = null;
+        if (measurements.isEmpty()) {
             Log.i(TAG, "No measurements available. Cannot calculate the position..");
-        return new Cell(0, 1);
+
+        } else {//TODO
+            cell = new Cell(0, 1);
+        }
+        return cell;
     }
 
     /**
@@ -598,6 +608,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
         return new String(hexChars);
     }
+
 
     public static byte[] getIdAsByte(java.util.UUID uuid) {
         ByteBuffer bb = ByteBuffer.wrap(new byte[16]);

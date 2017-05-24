@@ -23,5 +23,6 @@
     <string name="magnetic_field_x">Geomagnetic field X (\u00B5T):</string>
     <string name="magnetic_field_y">Geomagnetic field Y (\u00B5T):</string>
     <string name="magnetic_field_z">Geomagnetic field Z (\u00B5T):</string>
-    <string name="calculated_position">Calculated Position:</string>
+    <string name="calculated_position">Position:</string>
+    <string name="calculated_room">Room:</string>
 </resources>

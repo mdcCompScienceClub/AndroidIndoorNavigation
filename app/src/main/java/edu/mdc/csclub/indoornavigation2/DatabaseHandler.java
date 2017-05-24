@@ -168,15 +168,35 @@ public class DatabaseHandler extends SQLiteOpenHelper {
         if (cursor != null)
             cursor.moveToFirst();
 
-        Cell contact = null;
+        Cell cell = null;
         try {
-            contact = new Cell(Integer.parseInt(cursor.getString(0)),
+            cell = new Cell(Integer.parseInt(cursor.getString(0)),
                     Integer.parseInt(cursor.getString(1)), Integer.parseInt(cursor.getString(2)));
         } catch (CursorIndexOutOfBoundsException e) {
             Log.e(TAG, "Cell not found");
         }
-        // return contact
-        return contact;
+        return cell;
+    }
+
+    // Getting a room
+    Room getRoom(int roomId) {
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.query("Room", new String[]{"_id", "RoomNumber", "RoomPicture", "Description", "OccupiedBy"},
+                "_id" + "=?",
+                new String[]{String.valueOf(roomId)}, null, null, null, null);
+        if (cursor != null)
+            cursor.moveToFirst();
+
+        Room room = null;
+        try {
+            room = new Room(Integer.parseInt(cursor.getString(0)),
+                    cursor.getString(1), cursor.getString(3), cursor.getString(4), cursor.getString(2));
+
+        } catch (CursorIndexOutOfBoundsException e) {
+            Log.e(TAG, "Room not found");
+        }
+        return room;
     }
 
 }
