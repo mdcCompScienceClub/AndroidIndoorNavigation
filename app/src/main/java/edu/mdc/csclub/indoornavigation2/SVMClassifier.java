@@ -297,7 +297,6 @@ public class SVMClassifier {
                         feature_max[idx] = fmax;
 
                         Log.i(TAG, "******SCALING PARAMETERS LOADED: " + idx + ": " + feature_min[idx] + "-" + feature_max[idx]);
-
                     }
                 }
             }
