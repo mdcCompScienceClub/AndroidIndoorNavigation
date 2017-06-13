@@ -82,7 +82,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float ZMagneticField;
     private Cell currentCell;
     private Room currentRoom;
-    private List<Measurement> measurements;
 
     //Bluetooth objects:
     //For all APIs (<21 and >=21, >=23)
@@ -113,6 +112,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     //SQLLite DB
     private DatabaseHandler db;
 
+    private SVMClassifier SVMClassifier;
+
     ///////////////////////////////////////////////////////////////  App Lifecycle Methods ///////////////////////////////////////////////////////////////
 
     @Override
@@ -141,6 +142,31 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         magneticFieldYTextView = (TextView) findViewById(R.id.magneticFieldYTextView);
         magneticFieldZTextView = (TextView) findViewById(R.id.magneticFieldZTextView);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
+        getSupportActionBar().setDisplayShowHomeEnabled(true);
+        getSupportActionBar().setIcon(R.mipmap.ic_launcher);
+
+
+        //init app state
+        isScanning = false;
+
+        //init Bluetooth objects and permissions
+        initBLESetup();
+
+        //init sensor objects
+        initSensors();
+
+        //Init database
+        db = new DatabaseHandler(this);
+        db.createDataBase();
+        db.openDataBase();
+
+        SVMClassifier = new SVMClassifier(this);
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
 
         XTextView.setText(R.string.undetermined);
         YTextView.setText(R.string.undetermined);
@@ -162,67 +188,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         magneticFieldZTextView.setText(R.string.not_measured);
         progressBar.setVisibility(View.INVISIBLE);
 
-        //init app state
-        isScanning = false;
-
-        //init Bluetooth objects and permissions
-        initBLESetup();
-
-        //init sensor objects
-        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
-        List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
-        for (Sensor s : sensors) {
-            Log.i(TAG, "Found sensor: " + s.toString());
-        }
-        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
-        if (mAccelerometer != null) {
-            Log.i(TAG, "CREATED ACCELEROMETER:" + mAccelerometer.toString());
-            accelerometerPresent = true;
-        } else {
-            accelerationXTextView.setText(R.string.no_accelerometer);
-            accelerationYTextView.setText(R.string.no_accelerometer);
-            accelerationZTextView.setText(R.string.no_accelerometer);
-        }
-        mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
-        mDisplay = mWindowManager.getDefaultDisplay();
-        mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
-        if (mMagnetometer != null) {
-            Log.i(TAG, "CREATED MAGNETOMETER:" + mMagnetometer.toString());
-            magnetometerPresent = true;
-        } else {
-            magneticFieldXTextView.setText(R.string.no_magnetometer);
-            magneticFieldYTextView.setText(R.string.no_magnetometer);
-            magneticFieldZTextView.setText(R.string.no_magnetometer);
-        }
-        mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
-        if (mGyroscope != null) {
-            Log.i(TAG, "CREATED GYROSCOPE:" + mGyroscope.toString());
-            gyroscopePresent = true;
-        } else {
-            rotationXTextView.setText(R.string.no_gyroscope);
-            rotationYTextView.setText(R.string.no_gyroscope);
-            rotationZTextView.setText(R.string.no_gyroscope);
-        }
-
-        db = new DatabaseHandler(this);
-        db.createDataBase();
-        db.openDataBase();
-
-        // Reading all measurements
-        Log.i("Reading: ", "Reading all Measurements..");
-        measurements = db.getAllMeasurements();
-
-        for (Measurement m : measurements) {
-            String log = "Measurement: " + m.toString();
-            Log.i(TAG, log);
-        }
-
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-
         // Ensures Bluetooth is available on the device and it is enabled. If not,
         // displays a dialog requesting user permission to enable Bluetooth.
         if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
@@ -242,6 +207,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     @Override
     protected void onDestroy() {
+        db.close();
         super.onDestroy();
     }
 
@@ -253,6 +219,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     public void scan(View view) {
         if (!isScanning) {
             doScan(true);
+
         } else {
             doScan(false);
         }
@@ -528,7 +495,45 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    /////////////////////////////////////////////////////////////// Accelerometer/magnetometer methods ///////////////////////////////////////////////////////////////
+    /////////////////////////////////////////////////////////////// Sensor methods ///////////////////////////////////////////////////////////////
+    private void initSensors() {
+        mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
+        List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
+        for (Sensor s : sensors) {
+            Log.i(TAG, "Found sensor: " + s.toString());
+        }
+        mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
+        if (mAccelerometer != null) {
+            Log.i(TAG, "CREATED ACCELEROMETER:" + mAccelerometer.toString());
+            accelerometerPresent = true;
+        } else {
+            accelerationXTextView.setText(R.string.no_accelerometer);
+            accelerationYTextView.setText(R.string.no_accelerometer);
+            accelerationZTextView.setText(R.string.no_accelerometer);
+        }
+        mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
+        mDisplay = mWindowManager.getDefaultDisplay();
+        mMagnetometer = mSensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD);
+        if (mMagnetometer != null) {
+            Log.i(TAG, "CREATED MAGNETOMETER:" + mMagnetometer.toString());
+            magnetometerPresent = true;
+        } else {
+            magneticFieldXTextView.setText(R.string.no_magnetometer);
+            magneticFieldYTextView.setText(R.string.no_magnetometer);
+            magneticFieldZTextView.setText(R.string.no_magnetometer);
+        }
+        mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
+        if (mGyroscope != null) {
+            Log.i(TAG, "CREATED GYROSCOPE:" + mGyroscope.toString());
+            gyroscopePresent = true;
+        } else {
+            rotationXTextView.setText(R.string.no_gyroscope);
+            rotationYTextView.setText(R.string.no_gyroscope);
+            rotationZTextView.setText(R.string.no_gyroscope);
+        }
+    }
+
+
     public void onAccuracyChanged(Sensor sensor, int accuracy) {
         Log.i(TAG, "Accuracy changed");
     }
@@ -583,14 +588,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     /////////////////////////////////////////////////////////////// Utility methods   ///////////////////////////////////////////////////////////////
 
     private Cell calculatePosition() {
-        Cell cell = null;
-        if (measurements.isEmpty()) {
-            Log.i(TAG, "No measurements available. Cannot calculate the position..");
-
-        } else {//TODO
-            cell = new Cell(0, 1);
-        }
-        return cell;
+        return SVMClassifier.predict(new Measurement(-1, -1, beacon11RSSI, beacon12RSSI, beacon21RSSI, beacon22RSSI, beacon31RSSI, beacon32RSSI));
     }
 
     /**

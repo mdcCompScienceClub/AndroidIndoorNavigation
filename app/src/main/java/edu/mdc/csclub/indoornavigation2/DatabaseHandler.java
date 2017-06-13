@@ -76,23 +76,26 @@ public class DatabaseHandler extends SQLiteOpenHelper {
      */
     private void copyDataBase() {
         //Open your local db as the input stream
-        InputStream myInput = null;
+        InputStream inputStream = null;
         try {
-            myInput = mContext.getAssets().open(DB_NAME);
+            inputStream = mContext.getAssets().open(DB_NAME);
             //Open the empty db as the output stream
-            OutputStream myOutput = new FileOutputStream(DB_DIR + DB_NAME);
+            OutputStream outputStream = new FileOutputStream(DB_DIR + DB_NAME, false);
+
+
+            Log.e(TAG, "******Copying database: " + DB_NAME + " to " + DB_DIR + DB_NAME);
 
             //transfer bytes from the inputfile to the outputfile
             byte[] buffer = new byte[1024];
             int length;
-            while ((length = myInput.read(buffer)) > 0) {
-                myOutput.write(buffer, 0, length);
+            while ((length = inputStream.read(buffer)) > 0) {
+                outputStream.write(buffer, 0, length);
             }
 
             //Close the streams
-            myOutput.flush();
-            myOutput.close();
-            myInput.close();
+            outputStream.flush();
+            outputStream.close();
+            inputStream.close();
         } catch (IOException e) {
             Log.e(TAG, "Cannot open asset = " + e.getMessage());
         }
@@ -162,11 +165,22 @@ public class DatabaseHandler extends SQLiteOpenHelper {
     Cell getCell(int X, int Y) {
         SQLiteDatabase db = this.getReadableDatabase();
 
-        Cursor cursor = db.query("Cell", new String[]{"X",
-                        "Y", "RoomID"}, "X" + "=?" + " AND " + "Y" + "=?",
-                new String[]{String.valueOf(X), String.valueOf(Y)}, null, null, null, null);
+        Cursor cursor = db.query("Cell",                    // table name
+                new String[]{"X", "Y", "RoomID"},   // list of which table columns to return
+                " X=? AND Y=? ",  // WHERE clause, with ?  as placeholders for parameters
+                new String[]{String.valueOf(X), String.valueOf(Y)}, // parameters for the placeholders in the WHERE clause
+                null,                               // GROUP BY
+                null,                               // HAVING
+                null,                               // ORDER BY
+                null);                              // ?
+
         if (cursor != null)
             cursor.moveToFirst();
+
+        //Log.e(TAG, "******Found for X="+ X + " and Y=" + Y + ": "+ cursor.getCount());
+        //while(cursor.moveToNext()){
+        //    Log.e(TAG, "******" +cursor.getString(0) +"*"+ cursor.getString(1)+"*"+cursor.getString(2)+"*"+cursor.getString(3));
+        //}
 
         Cell cell = null;
         try {

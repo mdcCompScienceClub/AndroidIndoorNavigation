@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">EnTec Indoor Navigation</string>
+    <string name="app_name">Indoor Navigation</string>
     <string name="scan_message">Scan</string>
     <string name="stop_scan_message">Stop scanning</string>
     <string name="beacon1">Beacon 11 RSSI (dBm):</string>
