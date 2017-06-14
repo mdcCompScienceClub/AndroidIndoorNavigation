@@ -45,18 +45,31 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener {
+public class DebugActivity extends AppCompatActivity implements SensorEventListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
     //UI components
     private Button scanButton;
+    private TextView beacon11TextView;
+    private TextView beacon12TextView;
+    private TextView beacon21TextView;
+    private TextView beacon22TextView;
+    private TextView beacon31TextView;
+    private TextView beacon32TextView;
+    private TextView accelerationXTextView;
+    private TextView accelerationYTextView;
+    private TextView accelerationZTextView;
+    private TextView rotationXTextView;
+    private TextView rotationYTextView;
+    private TextView rotationZTextView;
+    private TextView magneticFieldXTextView;
+    private TextView magneticFieldYTextView;
+    private TextView magneticFieldZTextView;
     private TextView XTextView;
     private TextView YTextView;
     private TextView roomTextView;
     private ProgressBar progressBar;
-    private ImageView mapImageView;
-    private Drawable marker;
 
 
     //App state
@@ -78,12 +91,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float ZMagneticField;
     private Cell currentCell;
     private Room currentRoom;
-    private static final int numCellsX = 50;
-    private static final int numCellsY = 30;
-    private static final int mapWidth = 652;
-    private static final int mapHeight = 266;
-    private static final int mapOffsetX = 26;
-    private static final int mapOffsetY = 90;
 
     //Bluetooth objects:
     //For all APIs (<21 and >=21, >=23)
@@ -123,24 +130,34 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         super.onCreate(savedInstanceState);
 
         // Set up UI components
-        setContentView(R.layout.activity_main);
+        setContentView(R.layout.activity_debug);
         scanButton = (Button) findViewById(R.id.scanButton);
         XTextView = (TextView) findViewById(R.id.XTextView);
         YTextView = (TextView) findViewById(R.id.YTextView);
         roomTextView = (TextView) findViewById(R.id.roomTextView);
+        beacon11TextView = (TextView) findViewById(R.id.beacon11TextView);
+        beacon12TextView = (TextView) findViewById(R.id.beacon12TextView);
+        beacon21TextView = (TextView) findViewById(R.id.beacon21TextView);
+        beacon22TextView = (TextView) findViewById(R.id.beacon22TextView);
+        beacon31TextView = (TextView) findViewById(R.id.beacon31TextView);
+        beacon32TextView = (TextView) findViewById(R.id.beacon32TextView);
+        accelerationXTextView = (TextView) findViewById(R.id.accelerationXTextView);
+        accelerationYTextView = (TextView) findViewById(R.id.accelerationYTextView);
+        accelerationZTextView = (TextView) findViewById(R.id.accelerationZTextView);
+        rotationXTextView = (TextView) findViewById(R.id.rotationXTextView);
+        rotationYTextView = (TextView) findViewById(R.id.rotationYTextView);
+        rotationZTextView = (TextView) findViewById(R.id.rotationZTextView);
+        magneticFieldXTextView = (TextView) findViewById(R.id.magneticFieldXTextView);
+        magneticFieldYTextView = (TextView) findViewById(R.id.magneticFieldYTextView);
+        magneticFieldZTextView = (TextView) findViewById(R.id.magneticFieldZTextView);
         progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        mapImageView = (ImageView) findViewById(R.id.mapImageView);
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayShowHomeEnabled(true);
         getSupportActionBar().setIcon(R.mipmap.ic_launcher);
         getSupportActionBar().setSubtitle("by the MDC North CS Club");
-
-
-        //Make a new marker drawable
-        marker = ContextCompat.getDrawable(this, R.drawable.pin);
-
+        getSupportActionBar().setDisplayHomeAsUpEnabled(true);//Back button
 
         //init app state
         isScanning = false;
@@ -168,6 +185,21 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         XTextView.setText(R.string.undetermined);
         YTextView.setText(R.string.undetermined);
         roomTextView.setText(R.string.undetermined);
+        beacon11TextView.setText(R.string.not_detected);
+        beacon12TextView.setText(R.string.not_detected);
+        beacon21TextView.setText(R.string.not_detected);
+        beacon22TextView.setText(R.string.not_detected);
+        beacon31TextView.setText(R.string.not_detected);
+        beacon32TextView.setText(R.string.not_detected);
+        accelerationXTextView.setText(R.string.not_measured);
+        accelerationYTextView.setText(R.string.not_measured);
+        accelerationZTextView.setText(R.string.not_measured);
+        rotationXTextView.setText(R.string.not_measured);
+        rotationYTextView.setText(R.string.not_measured);
+        rotationZTextView.setText(R.string.not_measured);
+        magneticFieldXTextView.setText(R.string.not_measured);
+        magneticFieldYTextView.setText(R.string.not_measured);
+        magneticFieldZTextView.setText(R.string.not_measured);
         progressBar.setVisibility(View.INVISIBLE);
 
         // Ensures Bluetooth is available on the device and it is enabled. If not,
@@ -180,15 +212,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-    @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-
-        if (hasFocus) {
-            Log.i(TAG, "width=" + mapImageView.getMeasuredWidth() + "height=" + mapImageView.getMeasuredHeight());
-            //addMarker(0, 30);
-        }
-    }
 
     @Override
     protected void onPause() {
@@ -206,7 +229,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        //getMenuInflater().inflate(R.menu.menu_main, menu);
         return true;
     }
 
@@ -219,6 +242,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 Intent intent = new Intent(this, DebugActivity.class);
                 startActivity(intent);
                 return true;
+            case android.R.id.home:
+                finish(); // close this activity and return to preview activity (if there is any)
             default:
                 return super.onOptionsItemSelected(item);
         }
@@ -268,20 +293,26 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
             if (major == 1) {
                 if (minor == 1) {
                     beacon11RSSI = rssi;
+                    beacon11TextView.setText(String.valueOf(rssi));
                 } else if (minor == 2) {
                     beacon12RSSI = rssi;
+                    beacon12TextView.setText(String.valueOf(rssi));
                 }
             } else if (major == 2) {
                 if (minor == 1) {
                     beacon21RSSI = rssi;
+                    beacon21TextView.setText(String.valueOf(rssi));
                 } else if (minor == 2) {
                     beacon22RSSI = rssi;
+                    beacon22TextView.setText(String.valueOf(rssi));
                 }
             } else if (major == 3) {
                 if (minor == 1) {
                     beacon31RSSI = rssi;
+                    beacon31TextView.setText(String.valueOf(rssi));
                 } else if (minor == 2) {
                     beacon32RSSI = rssi;
+                    beacon32TextView.setText(String.valueOf(rssi));
                 }
             }
 
@@ -292,18 +323,27 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         XAcceleration = XAcc;
         YAcceleration = YAcc;
         ZAcceleration = ZAcc;
+        accelerationXTextView.setText(String.valueOf(XAcc));
+        accelerationYTextView.setText(String.valueOf(YAcc));
+        accelerationZTextView.setText(String.valueOf(ZAcc));
     }
 
     private void updateRotation(float XRot, float YRot, float ZRot) {
         XRotation = XRot;
         YRotation = YRot;
         ZRotation = ZRot;
+        rotationXTextView.setText(String.valueOf(XRot));
+        rotationYTextView.setText(String.valueOf(YRot));
+        rotationZTextView.setText(String.valueOf(ZRot));
     }
 
     private void updateMagneticField(float XMF, float YMF, float ZMF) {
         XMagneticField = XMF;
         YMagneticField = YMF;
         ZMagneticField = ZMF;
+        magneticFieldXTextView.setText(String.valueOf(XMF));
+        magneticFieldYTextView.setText(String.valueOf(YMF));
+        magneticFieldZTextView.setText(String.valueOf(ZMF));
     }
 
     private void updateCalculatedPosition() {
@@ -322,7 +362,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                     roomTextView.setText(R.string.undetermined);
                 }
             }
-            addMarker(currentCell.getX(), currentCell.getY());
         } else {
             XTextView.setText(R.string.undetermined);
             YTextView.setText(R.string.undetermined);
@@ -330,17 +369,6 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
-    private void addMarker(int X, int Y) {
-        mapImageView.getOverlay().remove(marker);
-        Rect markerBounds = new Rect(0, 0, marker.getIntrinsicWidth(), marker.getIntrinsicHeight());
-        double cellWidth = mapWidth / (double) numCellsX;
-        markerBounds.offset(X * mapWidth / numCellsX + mapOffsetX - (markerBounds.width() / 2),
-                Y * mapHeight / numCellsY + mapOffsetY - markerBounds.height());//translate
-        //markerBounds.offset( X + mapOffsetX - (markerBounds.width() /2),
-        // Y + mapOffsetY - markerBounds.height());//translate
-        marker.setBounds(markerBounds);
-        mapImageView.getOverlay().add(marker);
-    }
 
     /////////////////////////////////////////////////////////////// Other callback methods ///////////////////////////////////////////////////////////////
     @Override
@@ -517,6 +545,10 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (mAccelerometer != null) {
             Log.i(TAG, "CREATED ACCELEROMETER:" + mAccelerometer.toString());
             accelerometerPresent = true;
+        } else {
+            accelerationXTextView.setText(R.string.no_accelerometer);
+            accelerationYTextView.setText(R.string.no_accelerometer);
+            accelerationZTextView.setText(R.string.no_accelerometer);
         }
         mWindowManager = (WindowManager) getSystemService(WINDOW_SERVICE);
         mDisplay = mWindowManager.getDefaultDisplay();
@@ -524,11 +556,19 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         if (mMagnetometer != null) {
             Log.i(TAG, "CREATED MAGNETOMETER:" + mMagnetometer.toString());
             magnetometerPresent = true;
+        } else {
+            magneticFieldXTextView.setText(R.string.no_magnetometer);
+            magneticFieldYTextView.setText(R.string.no_magnetometer);
+            magneticFieldZTextView.setText(R.string.no_magnetometer);
         }
         mGyroscope = mSensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         if (mGyroscope != null) {
             Log.i(TAG, "CREATED GYROSCOPE:" + mGyroscope.toString());
             gyroscopePresent = true;
+        } else {
+            rotationXTextView.setText(R.string.no_gyroscope);
+            rotationYTextView.setText(R.string.no_gyroscope);
+            rotationZTextView.setText(R.string.no_gyroscope);
         }
     }
 
