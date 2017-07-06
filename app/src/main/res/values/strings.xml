@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Indoor Navigation</string>
+    <string name="app_name">Entec Indoor Navigation</string>
     <string name="scan_message">Scan</string>
     <string name="stop_scan_message">Stop scanning</string>
     <string name="beacon1">Beacon 11 RSSI (dBm):</string>
@@ -26,4 +26,17 @@
     <string name="calculated_position">Position:</string>
     <string name="calculated_room">Room:</string>
     <string name="action_settings">Debug</string>
+    <string name="title_activity_main">Entec Indoor Navigation</string>
+
+    <string name="navigation_drawer_open">Open navigation drawer</string>
+    <string name="navigation_drawer_close">Close navigation drawer</string>
+    <string name="mdc">Miami Dade College - North Campus</string>
+    <string name="mdc_subtitle">Science Complex</string>
+    <string name="greeting_text"><![CDATA[Welcome to the School of Engineering\n and Technology!]]></string>
+    <string name="greeting_text2"><![CDATA[Room: 1256\nMiami Dade College - North Campus\n11380 NW 27th Avenue Miami, FL 33167\nDept. Phone: (305)-237-1220\nDept. Fax: (305) 237-1531 ]]></string>
+    <string name="title_navigation">Entec Indoor Navigation</string>
+    <string name="title_contacts">Contacts</string>
+    <string name="title_debug">Debug Information</string>
+    <string name="title_share">Share</string>
+    <string name="title_send">Send</string>
 </resources>

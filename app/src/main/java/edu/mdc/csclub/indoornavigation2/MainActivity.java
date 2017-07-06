@@ -3,70 +3,45 @@ package edu.mdc.csclub.indoornavigation2;
 import android.Manifest;
 import android.app.Activity;
 import android.bluetooth.BluetoothAdapter;
-import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
-import android.bluetooth.le.ScanRecord;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Rect;
-import android.graphics.drawable.Drawable;
 import android.hardware.Sensor;
-import android.hardware.SensorEvent;
-import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.support.v4.content.ContextCompat;
+import android.os.Build;
+import android.os.Bundle;
+import android.support.design.widget.NavigationView;
+import android.support.v4.app.Fragment;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.view.GravityCompat;
+import android.support.v4.widget.DrawerLayout;
+import android.support.v7.app.ActionBarDrawerToggle;
 import android.support.v7.app.AlertDialog;
 import android.support.v7.app.AppCompatActivity;
-import android.os.Bundle;
-import android.os.Build;
-import android.bluetooth.le.BluetoothLeScanner;
-import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
-import android.bluetooth.le.ScanResult;
-import android.bluetooth.le.ScanSettings;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.Display;
 import android.view.Menu;
 import android.view.MenuItem;
-import android.view.Surface;
 import android.view.View;
-import android.view.ViewTreeObserver;
 import android.view.WindowManager;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.ProgressBar;
-import android.widget.TextView;
 
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class MainActivity extends AppCompatActivity implements SensorEventListener {
+public class MainActivity extends AppCompatActivity
+        implements NavigationView.OnNavigationItemSelectedListener {
 
     private static final String TAG = MainActivity.class.getSimpleName();
 
-    //UI components
-    private Button scanButton;
-    private TextView XTextView;
-    private TextView YTextView;
-    private TextView roomTextView;
-    private ProgressBar progressBar;
-    private ImageView mapImageView;
-    private Drawable marker;
-
-
-    //App state
-    private boolean isScanning;
-    private int beacon11RSSI;
-    private int beacon12RSSI;
-    private int beacon21RSSI;
-    private int beacon22RSSI;
-    private int beacon31RSSI;
-    private int beacon32RSSI;
+    // app state
     private float XAcceleration;
     private float YAcceleration;
     private float ZAcceleration;
@@ -76,28 +51,17 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private float XMagneticField;
     private float YMagneticField;
     private float ZMagneticField;
-    private Cell currentCell;
-    private Room currentRoom;
-    private static final int numCellsX = 50;
-    private static final int numCellsY = 30;
-    private static final int mapWidth = 652;
-    private static final int mapHeight = 266;
-    private static final int mapOffsetX = 26;
-    private static final int mapOffsetY = 90;
 
     //Bluetooth objects:
     //For all APIs (<21 and >=21, >=23)
     private BluetoothAdapter mBluetoothAdapter;
-    private final static int REQUEST_ENABLE_BT = 1;
+    private final int REQUEST_ENABLE_BT = 1;
     //For API >=23, dynamic permissions are needed
     private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
     //For API >=21
     private BluetoothLeScanner mLEScanner;
     private ScanSettings scanSettings;
     private List<ScanFilter> filters;
-    private ScanCallback newerVersionScanCallback;
-    //For API < 21
-    private BluetoothAdapter.LeScanCallback olderVersionScanCallback;
 
     //Sensor Objects
     private SensorManager mSensorManager;
@@ -110,43 +74,63 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     private boolean magnetometerPresent = false;
     private boolean gyroscopePresent = false;
 
-
     //SQLLite DB
     private DatabaseHandler db;
 
+    // Classifier
     private SVMClassifier SVMClassifier;
 
-    ///////////////////////////////////////////////////////////////  App Lifecycle Methods ///////////////////////////////////////////////////////////////
+    private String mTitle;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
-        // Set up UI components
         setContentView(R.layout.activity_main);
-        scanButton = (Button) findViewById(R.id.scanButton);
-        XTextView = (TextView) findViewById(R.id.XTextView);
-        YTextView = (TextView) findViewById(R.id.YTextView);
-        roomTextView = (TextView) findViewById(R.id.roomTextView);
-        progressBar = (ProgressBar) findViewById(R.id.progressBar);
-        mapImageView = (ImageView) findViewById(R.id.mapImageView);
+
 
         Toolbar toolbar = (Toolbar) findViewById(R.id.toolbar);
         setSupportActionBar(toolbar);
         getSupportActionBar().setDisplayShowHomeEnabled(true);
-        getSupportActionBar().setIcon(R.mipmap.ic_launcher);
+        getSupportActionBar().setIcon(R.mipmap.ic_logo);
+        mTitle = "Entec Indoor Navigation";
+        getSupportActionBar().setTitle(mTitle);
         getSupportActionBar().setSubtitle("by the MDC North CS Club");
 
+        /*FloatingActionButton fab = (FloatingActionButton) findViewById(R.id.fab);
+        fab.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Snackbar.make(view, "Replace with your own action", Snackbar.LENGTH_LONG)
+                        .setAction("Action", null).show();
+            }
+        });*/
 
-        //Make a new marker drawable
-        marker = ContextCompat.getDrawable(this, R.drawable.pin);
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(
+                this, drawer, toolbar, R.string.navigation_drawer_open, R.string.navigation_drawer_close);
+        drawer.setDrawerListener(toggle);
+        toggle.syncState();
+
+        NavigationView navigationView = (NavigationView) findViewById(R.id.nav_view);
+        navigationView.setNavigationItemSelectedListener(this);
+
+        if (findViewById(R.id.fragment_container) != null) {
+            if (savedInstanceState != null) {
+                return;
+            }
+            ContactsFragment firstFragment = new ContactsFragment();
+            getSupportFragmentManager().beginTransaction()
+                    .add(R.id.fragment_container, firstFragment, "contacts").commit();
+        }
 
 
-        //init app state
-        isScanning = false;
+    }
 
-        //init Bluetooth objects and permissions
-        initBLESetup();
+    @Override
+    public void onResume() {
+        super.onResume();
+        Log.i(TAG, "on resuming");
+
 
         //init sensor objects
         initSensors();
@@ -156,20 +140,11 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         db.createDataBase();
         db.openDataBase();
 
+        // Create classifier
         SVMClassifier = new SVMClassifier(this);
 
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        Log.i(TAG, "on resuming");
-
-        XTextView.setText(R.string.undetermined);
-        YTextView.setText(R.string.undetermined);
-        roomTextView.setText(R.string.undetermined);
-        progressBar.setVisibility(View.INVISIBLE);
-
+        //init Bluetooth objects and permissions
+        initBLESetup();
         // Ensures Bluetooth is available on the device and it is enabled. If not,
         // displays a dialog requesting user permission to enable Bluetooth.
         if (mBluetoothAdapter == null || !mBluetoothAdapter.isEnabled()) {
@@ -181,204 +156,115 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
     }
 
     @Override
-    public void onWindowFocusChanged(boolean hasFocus) {
-        super.onWindowFocusChanged(hasFocus);
-
-        if (hasFocus) {
-            Log.i(TAG, "width=" + mapImageView.getMeasuredWidth() + "height=" + mapImageView.getMeasuredHeight());
-            //addMarker(0, 30);
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-
-        doScan(false);
-    }
-
-    @Override
-    protected void onDestroy() {
-        db.close();
+    public void onDestroy() {
+        if (db != null)
+            db.close();
         super.onDestroy();
+    }
+
+    @Override
+    public void onBackPressed() {
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        if (drawer.isDrawerOpen(GravityCompat.START)) {
+            drawer.closeDrawer(GravityCompat.START);
+        } else {
+            super.onBackPressed();
+        }
     }
 
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        getMenuInflater().inflate(R.menu.main, menu);
         return true;
     }
 
     @Override
     public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle presses on the action bar items
-        switch (item.getItemId()) {
-            case R.id.DebugMI:
-                Log.i(TAG, "menu");
-                Intent intent = new Intent(this, DebugActivity.class);
-                startActivity(intent);
-                return true;
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+        int id = item.getItemId();
+
+        //noinspection SimplifiableIfStatement
+        if (id == R.id.action_settings) {
+            DebugFragment debugFragment = new DebugFragment();
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, debugFragment, "debug").commit();
+            return true;
+
+
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    @SuppressWarnings("StatementWithEmptyBody")
+    @Override
+    public boolean onNavigationItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        Fragment fragment = null;
+        String tag = null;
+        switch (id) {
+            case R.id.nav_navigation:
+                mTitle = getString(R.string.title_navigation);
+                fragment = new NavigationFragment();
+                tag = "navigation";
+                break;
+            case R.id.nav_contacts:
+                mTitle = getString(R.string.title_contacts);
+                fragment = new ContactsFragment();
+                tag = "contacts";
+                break;
+            case R.id.nav_debug:
+                mTitle = getString(R.string.title_debug);
+                fragment = new DebugFragment();
+                tag = "debug";
+                break;
+            case R.id.nav_share:
+                mTitle = getString(R.string.title_share);
+                //TODO
+                break;
+            case R.id.nav_send:
+                mTitle = getString(R.string.title_send);
+                //TODO
+                break;
             default:
-                return super.onOptionsItemSelected(item);
-        }
-    }
-
-    ///////////////////////////////////////////////////////////////  UI  methods ///////////////////////////////////////////////////////////////
-
-    /**
-     * Called when the user taps the Scan button
-     */
-    public void scan(View view) {
-        if (!isScanning) {
-            doScan(true);
-
-        } else {
-            doScan(false);
+                mTitle = getString(R.string.title_contacts);
+                fragment = new ContactsFragment();
+                tag = "contacts";
         }
 
-    }
+        if (getSupportActionBar() != null)
+            getSupportActionBar().setTitle(mTitle);
 
-    private void doScan(boolean enable) {
-        if (enable) {
-            isScanning = true;
-            scanButton.setText(R.string.stop_scan_message);
-            progressBar.setVisibility(View.VISIBLE);
-            scanBLEDevice(true);
-            if (accelerometerPresent)
-                mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-            if (magnetometerPresent)
-                mSensorManager.registerListener(this, mMagnetometer, SensorManager.SENSOR_DELAY_GAME);
-            if (gyroscopePresent)
-                mSensorManager.registerListener(this, mGyroscope, SensorManager.SENSOR_DELAY_GAME);
-
-        } else {
-            isScanning = false;
-            scanButton.setText(R.string.scan_message);
-            progressBar.setVisibility(View.INVISIBLE);
-            if (mBluetoothAdapter != null && mBluetoothAdapter.isEnabled()) {
-                scanBLEDevice(false);
-            }
-            mSensorManager.unregisterListener(this);
-        }
-    }
-
-    private void updateRSSI(String uuid, int major, int minor, int rssi) {
-        if (uuid.equalsIgnoreCase("B9407F30-F5F8-466E-AFF9-25556B575555")) {
-            if (major == 1) {
-                if (minor == 1) {
-                    beacon11RSSI = rssi;
-                } else if (minor == 2) {
-                    beacon12RSSI = rssi;
-                }
-            } else if (major == 2) {
-                if (minor == 1) {
-                    beacon21RSSI = rssi;
-                } else if (minor == 2) {
-                    beacon22RSSI = rssi;
-                }
-            } else if (major == 3) {
-                if (minor == 1) {
-                    beacon31RSSI = rssi;
-                } else if (minor == 2) {
-                    beacon32RSSI = rssi;
-                }
-            }
-
-        }
-    }
-
-    private void updateAcceleration(float XAcc, float YAcc, float ZAcc) {
-        XAcceleration = XAcc;
-        YAcceleration = YAcc;
-        ZAcceleration = ZAcc;
-    }
-
-    private void updateRotation(float XRot, float YRot, float ZRot) {
-        XRotation = XRot;
-        YRotation = YRot;
-        ZRotation = ZRot;
-    }
-
-    private void updateMagneticField(float XMF, float YMF, float ZMF) {
-        XMagneticField = XMF;
-        YMagneticField = YMF;
-        ZMagneticField = ZMF;
-    }
-
-    private void updateCalculatedPosition() {
-        if (currentCell != null) {
-            XTextView.setText(String.valueOf(currentCell.getX()));
-            YTextView.setText(String.valueOf(currentCell.getY()));
-            Cell retrievedCell = db.getCell(currentCell.getX(), currentCell.getY());
-            if (retrievedCell != null) {
-                currentCell.setRoomID(retrievedCell.getRoomID());
-                Log.i(TAG, "Room ID: " + currentCell.getRoomID());
-
-                currentRoom = db.getRoom(currentCell.getRoomID());
-                if (currentRoom != null) {
-                    roomTextView.setText(String.valueOf(currentRoom.getRoomNumber()));
-                } else {
-                    roomTextView.setText(R.string.undetermined);
-                }
-            }
-            addMarker(currentCell.getX(), currentCell.getY());
-        } else {
-            XTextView.setText(R.string.undetermined);
-            YTextView.setText(R.string.undetermined);
+        if (fragment != null) {
+            FragmentManager fragmentManager = getSupportFragmentManager();
+            fragmentManager.beginTransaction()
+                    .replace(R.id.fragment_container, fragment, tag)
+                    .commit();
         }
 
+        DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
+        drawer.closeDrawer(GravityCompat.START);
+
+
+        return true;
     }
 
-    private void addMarker(int X, int Y) {
-        mapImageView.getOverlay().remove(marker);
-        Rect markerBounds = new Rect(0, 0, marker.getIntrinsicWidth(), marker.getIntrinsicHeight());
-        double cellWidth = mapWidth / (double) numCellsX;
-        markerBounds.offset(X * mapWidth / numCellsX + mapOffsetX - (markerBounds.width() / 2),
-                Y * mapHeight / numCellsY + mapOffsetY - markerBounds.height());//translate
-        //markerBounds.offset( X + mapOffsetX - (markerBounds.width() /2),
-        // Y + mapOffsetY - markerBounds.height());//translate
-        marker.setBounds(markerBounds);
-        mapImageView.getOverlay().add(marker);
+    public void debugScan(View view) {
+        DebugFragment debugFragment = (DebugFragment)
+                getSupportFragmentManager().findFragmentByTag("debug");
+        debugFragment.scan();
+
     }
 
-    /////////////////////////////////////////////////////////////// Other callback methods ///////////////////////////////////////////////////////////////
-    @Override
-    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
-        //If the user does not want to enable Bluetooth, we kill the app
-        if (requestCode == REQUEST_ENABLE_BT) {
-            if (resultCode == Activity.RESULT_CANCELED) {
-                //Bluetooth not enabled.
-                finish();
-                return;
-            }
-        }
-        super.onActivityResult(requestCode, resultCode, data);
-    }
+    public void navigationScan(View view) {
+        NavigationFragment navigationFragment = (NavigationFragment)
+                getSupportFragmentManager().findFragmentByTag("navigation");
+        navigationFragment.scan();
 
-    @Override
-    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
-        switch (requestCode) {
-            case PERMISSION_REQUEST_COARSE_LOCATION: {
-                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                    Log.d(TAG, "coarse location permission granted");
-                } else {
-                    final AlertDialog.Builder builder = new AlertDialog.Builder(this);
-                    builder.setTitle("Functionality limited");
-                    builder.setMessage("Since location access has not been granted, this app will not be able to discover beacons when in the background.");
-                    builder.setPositiveButton(android.R.string.ok, null);
-                    builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
-                        @Override
-                        public void onDismiss(DialogInterface dialog) {
-                        }
-                    });
-                    builder.show();
-                }
-                return;
-            }
-        }
     }
-
     /////////////////////////////////////////////////////////////// Bluetooth methods ///////////////////////////////////////////////////////////////
     private void initBLESetup() {
         // Initializes Bluetooth adapter.
@@ -387,7 +273,7 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         //Beginning in Android 6.0 (API level 23), users grant permissions to apps while the app is running, not when they install the app.
         //Obtaining dynamic permissions from the user
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) { //23
-            if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 final AlertDialog.Builder builder = new AlertDialog.Builder(this);
                 builder.setTitle("This app needs location access.");
                 builder.setMessage("Please grant location access to this app.");
@@ -402,65 +288,9 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
                 builder.show();
             }
         }
-        // Create callback methods
-        if (Build.VERSION.SDK_INT >= 21) //LOLLIPOP
-            newerVersionScanCallback = new ScanCallback() {
-                @Override
-                public void onScanResult(int callbackType, ScanResult result) {
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-                        BluetoothDevice btDevice = result.getDevice();
-                        ScanRecord mScanRecord = result.getScanRecord();
-                        int rssi = result.getRssi();
-//                        Log.i(TAG, "Address: "+ btDevice.getAddress());
-//                        Log.i(TAG, "TX Power Level: " + result.getScanRecord().getTxPowerLevel());
-//                        Log.i(TAG, "RSSI in DBm: " + rssi);
-//                        Log.i(TAG, "Manufacturer data: "+ mScanRecord.getManufacturerSpecificData());
-//                        Log.i(TAG, "device name: "+ mScanRecord.getDeviceName());
-//                        Log.i(TAG, "Advertise flag: "+ mScanRecord.getAdvertiseFlags());
-//                        Log.i(TAG, "service uuids: "+ mScanRecord.getServiceUuids());
-//                        Log.i(TAG, "Service data: "+ mScanRecord.getServiceData());
-                        byte[] recordBytes = mScanRecord.getBytes();
-
-                        iBeacon ib = parseBLERecord(recordBytes);
-
-                        if (ib != null) {
-                            updateRSSI(ib.getUuid(), ib.getMajor(), ib.getMinor(), rssi);
-                            currentCell = calculatePosition();
-                            updateCalculatedPosition();
-                        }
-                    }
-                }
-
-                @Override
-                public void onScanFailed(int errorCode) {
-                    Log.e("Scan Failed", "Error Code: " + errorCode);
-                }
-            };
-        else
-            olderVersionScanCallback =
-                    new BluetoothAdapter.LeScanCallback() {
-                        @Override
-                        public void onLeScan(final BluetoothDevice device, final int rssi,
-                                             final byte[] scanRecord) {
-                            runOnUiThread(new Runnable() {
-                                @Override
-                                public void run() {
-                                    Log.i("onLeScan", device.toString());
-
-                                    iBeacon ib = parseBLERecord(scanRecord);
-
-                                    if (ib != null) {
-                                        updateRSSI(ib.getUuid(), ib.getMajor(), ib.getMinor(), rssi);
-                                        currentCell = calculatePosition();
-                                        updateCalculatedPosition();
-                                    }
-                                }
-                            });
-                        }
-                    };
     }
 
-    private void setupBLEScan() {
+    public void setupBLEScan() {
         //Android 4.3 (JELLY_BEAN_MR2) introduced platform support for Bluetooth Low Energy (Bluetooth LE) in the central role.
         // In Android 5.0 (LOLLIPOP, 21), an Android device can now act as a Bluetooth LE peripheral device. Apps can use this capability to make their presence known to nearby devices.
         // There was a new android.bluetooth.le API!!!
@@ -489,25 +319,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
         }
     }
-
-    private void scanBLEDevice(final boolean enable) {
-        if (enable) {
-            if (Build.VERSION.SDK_INT < 21) {
-                mBluetoothAdapter.startLeScan(olderVersionScanCallback);
-            } else {
-                mLEScanner.startScan(filters, scanSettings, newerVersionScanCallback);
-            }
-        } else {
-            if (Build.VERSION.SDK_INT < 21) {
-                mBluetoothAdapter.stopLeScan(olderVersionScanCallback);
-            } else {
-                mLEScanner.stopScan(newerVersionScanCallback);
-            }
-        }
-    }
-
     /////////////////////////////////////////////////////////////// Sensor methods ///////////////////////////////////////////////////////////////
-    private void initSensors() {
+    public void initSensors() {
         mSensorManager = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
         List<Sensor> sensors = mSensorManager.getSensorList(Sensor.TYPE_ALL);
         for (Sensor s : sensors) {
@@ -532,89 +345,8 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
         }
     }
 
-
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-        Log.i(TAG, "Accuracy changed");
-    }
-
-    public void onSensorChanged(SensorEvent event) {
-        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-            /*
-             * We need to
-             * take into account how the screen is rotated with respect to the
-             * sensors (which always return data in a coordinate space aligned
-             * to with the screen in its native orientation).
-             */
-            float mSensorX = 0;
-            float mSensorY = 0;
-            float mSensorZ = 0;
-            switch (mDisplay.getRotation()) {
-                case Surface.ROTATION_0:
-                    mSensorX = event.values[0];
-                    mSensorY = event.values[1];
-                    mSensorZ = event.values[2];
-                    break;
-                case Surface.ROTATION_90:
-                    mSensorX = -event.values[1];
-                    mSensorY = event.values[0];
-                    mSensorZ = event.values[2];
-                    break;
-                case Surface.ROTATION_180:
-                    mSensorX = -event.values[0];
-                    mSensorY = -event.values[1];
-                    mSensorZ = event.values[2];
-                    break;
-                case Surface.ROTATION_270:
-                    mSensorX = event.values[1];
-                    mSensorY = -event.values[0];
-                    mSensorZ = event.values[2];
-                    break;
-            }
-            updateAcceleration(mSensorX, mSensorY, mSensorZ);
-        } else if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-            float magneticFieldX = event.values[0];
-            float magneticFieldY = event.values[1];
-            float magneticFieldZ = event.values[2];
-            updateMagneticField(magneticFieldX, magneticFieldY, magneticFieldZ);
-        } else if (event.sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-            float rotationX = event.values[0];
-            float rotationY = event.values[1];
-            float rotationZ = event.values[2];
-            updateRotation(rotationX, rotationY, rotationZ);
-        }
-    }
-
-    /////////////////////////////////////////////////////////////// Utility methods   ///////////////////////////////////////////////////////////////
-
-    private Cell calculatePosition() {
-        return SVMClassifier.predict(new Measurement(-1, -1, beacon11RSSI, beacon12RSSI, beacon21RSSI, beacon22RSSI, beacon31RSSI, beacon32RSSI));
-    }
-
-    /**
-     * bytesToHex method
-     * http://stackoverflow.com/a/9855338
-     */
-    static final char[] hexArray = "0123456789ABCDEF".toCharArray();
-
-    private static String bytesToHex(byte[] bytes) {
-        char[] hexChars = new char[bytes.length * 2];
-        for (int j = 0; j < bytes.length; j++) {
-            int v = bytes[j] & 0xFF;
-            hexChars[j * 2] = hexArray[v >>> 4];
-            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
-        }
-        return new String(hexChars);
-    }
-
-
-    public static byte[] getIdAsByte(java.util.UUID uuid) {
-        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
-        bb.putLong(uuid.getMostSignificantBits());
-        bb.putLong(uuid.getLeastSignificantBits());
-        return bb.array();
-    }
-
-    private iBeacon parseBLERecord(byte[] scanRecord) {
+    /////////////////////////////////utility methods////////////////////////////////////
+    public iBeacon parseBLERecord(byte[] scanRecord) {
         iBeacon ib = null;
         String record = scanRecord.toString();
         Log.i(TAG, "record: " + record);
@@ -655,4 +387,203 @@ public class MainActivity extends AppCompatActivity implements SensorEventListen
 
     }
 
+    /**
+     * bytesToHex method
+     * http://stackoverflow.com/a/9855338
+     */
+    static final char[] hexArray = "0123456789ABCDEF".toCharArray();
+
+    private String bytesToHex(byte[] bytes) {
+        char[] hexChars = new char[bytes.length * 2];
+        for (int j = 0; j < bytes.length; j++) {
+            int v = bytes[j] & 0xFF;
+            hexChars[j * 2] = hexArray[v >>> 4];
+            hexChars[j * 2 + 1] = hexArray[v & 0x0F];
+        }
+        return new String(hexChars);
+    }
+
+
+    public byte[] getIdAsByte(java.util.UUID uuid) {
+        ByteBuffer bb = ByteBuffer.wrap(new byte[16]);
+        bb.putLong(uuid.getMostSignificantBits());
+        bb.putLong(uuid.getLeastSignificantBits());
+        return bb.array();
+    }
+
+    /////////////////////////////////////////////////////////////// Other callback methods ///////////////////////////////////////////////////////////////
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        //If the user does not want to enable Bluetooth, we kill the app
+        if (requestCode == getRequestEnableBt()) {
+            if (resultCode == Activity.RESULT_CANCELED) {
+                //Bluetooth not enabled.
+                finish();
+                return;
+            }
+        }
+        super.onActivityResult(requestCode, resultCode, data);
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSION_REQUEST_COARSE_LOCATION: {
+                if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                    Log.d(TAG, "coarse location permission granted");
+                } else {
+                    final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("Functionality limited");
+                    builder.setMessage("Since location access has not been granted, this app will not be able to discover beacons when in the background.");
+                    builder.setPositiveButton(android.R.string.ok, null);
+                    builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                        @Override
+                        public void onDismiss(DialogInterface dialog) {
+                        }
+                    });
+                    builder.show();
+                }
+                return;
+            }
+        }
+    }
+
+    /////////////////////////////////getters setters/////////////////////////////////
+
+
+    public SensorManager getmSensorManager() {
+        return mSensorManager;
+    }
+
+    public Sensor getmAccelerometer() {
+        return mAccelerometer;
+    }
+
+    public WindowManager getmWindowManager() {
+        return mWindowManager;
+    }
+
+    public Display getmDisplay() {
+        return mDisplay;
+    }
+
+    public Sensor getmMagnetometer() {
+        return mMagnetometer;
+    }
+
+    public Sensor getmGyroscope() {
+        return mGyroscope;
+    }
+
+    public boolean isAccelerometerPresent() {
+        return accelerometerPresent;
+    }
+
+    public boolean isMagnetometerPresent() {
+        return magnetometerPresent;
+    }
+
+    public boolean isGyroscopePresent() {
+        return gyroscopePresent;
+    }
+
+    public DatabaseHandler getDb() {
+        return db;
+    }
+
+    public edu.mdc.csclub.indoornavigation2.SVMClassifier getSVMClassifier() {
+        return SVMClassifier;
+    }
+
+    public float getXAcceleration() {
+        return XAcceleration;
+    }
+
+    public void setXAcceleration(float XAcceleration) {
+        this.XAcceleration = XAcceleration;
+    }
+
+    public float getYAcceleration() {
+        return YAcceleration;
+    }
+
+    public void setYAcceleration(float YAcceleration) {
+        this.YAcceleration = YAcceleration;
+    }
+
+    public float getZAcceleration() {
+        return ZAcceleration;
+    }
+
+    public void setZAcceleration(float ZAcceleration) {
+        this.ZAcceleration = ZAcceleration;
+    }
+
+    public float getXRotation() {
+        return XRotation;
+    }
+
+    public void setXRotation(float XRotation) {
+        this.XRotation = XRotation;
+    }
+
+    public float getYRotation() {
+        return YRotation;
+    }
+
+    public void setYRotation(float YRotation) {
+        this.YRotation = YRotation;
+    }
+
+    public float getZRotation() {
+        return ZRotation;
+    }
+
+    public void setZRotation(float ZRotation) {
+        this.ZRotation = ZRotation;
+    }
+
+    public float getXMagneticField() {
+        return XMagneticField;
+    }
+
+    public void setXMagneticField(float XMagneticField) {
+        this.XMagneticField = XMagneticField;
+    }
+
+    public float getYMagneticField() {
+        return YMagneticField;
+    }
+
+    public void setYMagneticField(float YMagneticField) {
+        this.YMagneticField = YMagneticField;
+    }
+
+    public float getZMagneticField() {
+        return ZMagneticField;
+    }
+
+    public void setZMagneticField(float ZMagneticField) {
+        this.ZMagneticField = ZMagneticField;
+    }
+
+    public BluetoothAdapter getmBluetoothAdapter() {
+        return mBluetoothAdapter;
+    }
+
+    public int getRequestEnableBt() {
+        return REQUEST_ENABLE_BT;
+    }
+
+    public BluetoothLeScanner getmLEScanner() {
+        return mLEScanner;
+    }
+
+    public List<ScanFilter> getFilters() {
+        return filters;
+    }
+
+    public ScanSettings getScanSettings() {
+        return scanSettings;
+    }
 }
